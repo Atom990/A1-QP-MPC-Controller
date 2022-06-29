@@ -146,6 +146,7 @@ A1RobotControl::A1RobotControl(ros::NodeHandle &_nh) : A1RobotControl() {
 }
 
 void A1RobotControl::update_plan(A1CtrlStates &state, double dt) {
+    // 0, 1, 2, 3: FL, FR, RL, RR
     state.counter += 1;
     if (!state.movement_mode) {
         // movement_mode == 0, standstill with all feet in contact with ground
@@ -162,6 +163,9 @@ void A1RobotControl::update_plan(A1CtrlStates &state, double dt) {
                 state.plan_contacts[i] = false;
             }
         }
+        // Keep RL(2) and RR(3) on the ground
+        state.plan_contacts[2] = true;
+        state.plan_contacts[3] = true;
     }
 
     // update foot plan: state.foot_pos_target_world
