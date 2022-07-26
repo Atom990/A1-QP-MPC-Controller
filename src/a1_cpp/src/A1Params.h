@@ -13,12 +13,12 @@
 
 // constant define
 // joy stick command interprate
-#define JOY_CMD_BODY_HEIGHT_MAX 0.32     // m
-#define JOY_CMD_BODY_HEIGHT_MIN 0.1     // m
+#define JOY_CMD_BODY_HEIGHT_MAX 0.4     // m
+#define JOY_CMD_BODY_HEIGHT_MIN 0.2     // m
 #define JOY_CMD_BODY_HEIGHT_VEL 0.04    // m/s
-#define JOY_CMD_VELX_MAX 0.6         // m/s
-#define JOY_CMD_VELY_MAX 0.3            // m/s
-#define JOY_CMD_YAW_MAX 0.8             // rad
+#define JOY_CMD_VELX_MAX 0.4            // m/s
+#define JOY_CMD_VELY_MAX 0.4            // m/s
+#define JOY_CMD_YAW_MAX 0.6             // rad
 #define JOY_CMD_PITCH_MAX 0.4           // rad
 #define JOY_CMD_ROLL_MAX 0.4            // rad
 
@@ -39,7 +39,7 @@
 #define FOOT_FORCE_HIGH 80.0
 
 #define FOOT_SWING_CLEARANCE1 0.0f
-#define FOOT_SWING_CLEARANCE2 0.4f
+#define FOOT_SWING_CLEARANCE2 0.3f
 
 #define FOOT_DELTA_X_LIMIT 0.1
 #define FOOT_DELTA_Y_LIMIT 0.1

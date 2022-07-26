@@ -81,6 +81,7 @@ public:
         foot_pos_target_abs.setZero();
         foot_pos_target_rel.setZero();
         foot_pos_start.setZero();
+        foot_pos_err.setZero();
         foot_pos_world.setZero();
         foot_pos_abs.setZero();
         foot_pos_rel.setZero();
@@ -88,7 +89,7 @@ public:
         foot_pos_rel_last_time.setZero();
         foot_pos_target_last_time.setZero();
         foot_pos_cur.setZero();
-        foot_pos_recent_contact.setZero();
+        // foot_pos_recent_contact.setZero();
         foot_vel_world.setZero();
         foot_vel_abs.setZero();
         foot_vel_rel.setZero();
@@ -389,11 +390,13 @@ public:
     double walking_surface_height_tmp;
     double walking_surface_height;
     int walking_surface_fit_count;
-
+    
+    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target;
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target_world; // in the world frame
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target_abs; // in a frame which centered at the robot frame's origin but parallels to the world frame
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target_rel; // in the robot frame
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_start;
+    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_err;
 
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_world; // in the world frame
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_abs; // in a frame which centered at the robot frame's origin but parallels to the world frame
@@ -402,7 +405,7 @@ public:
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_rel_last_time;
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target_last_time;
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_cur;
-    Eigen::Matrix<double, 3, NUM_LEG> foot_pos_recent_contact;
+//     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_recent_contact;
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_world;
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_abs;
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_rel;

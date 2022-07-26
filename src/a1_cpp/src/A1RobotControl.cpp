@@ -61,7 +61,18 @@ A1RobotControl::A1RobotControl(ros::NodeHandle &_nh) : A1RobotControl() {
     std::cout << "init nh" << std::endl;
     nh = _nh;
     _nh.param("use_sim_time", use_sim_time);
+    
     // initial debug publisher
+    pub_foot_pos_target[0] = nh.advertise<geometry_msgs::PointStamped>("/debug/FL_foot_pos_target", 100);
+    pub_foot_pos_target[1] = nh.advertise<geometry_msgs::PointStamped>("/debug/FR_foot_pos_target", 100);
+    pub_foot_pos_target[2] = nh.advertise<geometry_msgs::PointStamped>("/debug/RL_foot_pos_target", 100);
+    pub_foot_pos_target[3] = nh.advertise<geometry_msgs::PointStamped>("/debug/RR_foot_pos_target", 100);
+
+    pub_foot_pos_cur[0] = nh.advertise<geometry_msgs::PointStamped>("/debug/FL_foot_pos_cur", 100);
+    pub_foot_pos_cur[1] = nh.advertise<geometry_msgs::PointStamped>("/debug/FR_foot_pos_cur", 100);
+    pub_foot_pos_cur[2] = nh.advertise<geometry_msgs::PointStamped>("/debug/RL_foot_pos_cur", 100);
+    pub_foot_pos_cur[3] = nh.advertise<geometry_msgs::PointStamped>("/debug/RR_foot_pos_cur", 100);
+
     for (int i = 0; i < NUM_LEG; ++i) {
         std::string id = std::to_string(i);
         std::string start_topic = "/isaac_a1/foot" + id + "/start_pos";
@@ -174,118 +185,183 @@ void A1RobotControl::update_plan(A1CtrlStates &state, double dt) {
 
     // Raibert Heuristic, calculate foothold position
     state.foot_pos_target_rel = state.default_foot_pos;
+    // TODO: This part need to be modified for rear legs
     for (int i = 0; i < NUM_LEG; ++i) {
-        double delta_x =
-                std::sqrt(std::abs(state.default_foot_pos(2)) / 9.8) * (lin_vel_rel(0) - state.root_lin_vel_d(0)) +
-                ((state.counter_per_swing / state.gait_counter_speed(i)) * state.control_dt) / 2.0 *
-                state.root_lin_vel_d(0);
-        double delta_y =
-                std::sqrt(std::abs(state.default_foot_pos(2)) / 9.8) * (lin_vel_rel(1) - state.root_lin_vel_d(1)) +
-                ((state.counter_per_swing / state.gait_counter_speed(i)) * state.control_dt) / 2.0 *
-                state.root_lin_vel_d(1);
+        if (i == 0 || i == 1) {
+            double delta_x =
+                    std::sqrt(std::abs(state.default_foot_pos(2)) / 9.8) * (lin_vel_rel(0) - state.root_lin_vel_d(0)) +
+                    ((state.counter_per_swing / state.gait_counter_speed(i)) * state.control_dt) / 2.0 *
+                    state.root_lin_vel_d(0);
+            double delta_y =
+                    std::sqrt(std::abs(state.default_foot_pos(2)) / 9.8) * (lin_vel_rel(1) - state.root_lin_vel_d(1)) +
+                    ((state.counter_per_swing / state.gait_counter_speed(i)) * state.control_dt) / 2.0 *
+                    state.root_lin_vel_d(1);
 
-        if (delta_x < -FOOT_DELTA_X_LIMIT) {
-            delta_x = -FOOT_DELTA_X_LIMIT;
-        }
-        if (delta_x > FOOT_DELTA_X_LIMIT) {
-            delta_x = FOOT_DELTA_X_LIMIT;
-        }
-        if (delta_y < -FOOT_DELTA_Y_LIMIT) {
-            delta_y = -FOOT_DELTA_Y_LIMIT;
-        }
-        if (delta_y > FOOT_DELTA_Y_LIMIT) {
-            delta_y = FOOT_DELTA_Y_LIMIT;
-        }
+            if (delta_x < -FOOT_DELTA_X_LIMIT) {
+                delta_x = -FOOT_DELTA_X_LIMIT;
+            }
+            if (delta_x > FOOT_DELTA_X_LIMIT) {
+                delta_x = FOOT_DELTA_X_LIMIT;
+            }
+            if (delta_y < -FOOT_DELTA_Y_LIMIT) {
+                delta_y = -FOOT_DELTA_Y_LIMIT;
+            }
+            if (delta_y > FOOT_DELTA_Y_LIMIT) {
+                delta_y = FOOT_DELTA_Y_LIMIT;
+            }
 
-        state.foot_pos_target_rel(0, i) += delta_x;
-        state.foot_pos_target_rel(1, i) += delta_y;
-
+            state.foot_pos_target_rel(0, i) += delta_x;
+            state.foot_pos_target_rel(1, i) += delta_y;            
+        }
         state.foot_pos_target_abs.block<3, 1>(0, i) = state.root_rot_mat * state.foot_pos_target_rel.block<3, 1>(0, i);
-        state.foot_pos_target_world.block<3, 1>(0, i) = state.foot_pos_target_abs.block<3, 1>(0, i) + state.root_pos;
+        state.foot_pos_target_world.block<3, 1>(0, i) = state.foot_pos_target_abs.block<3, 1>(0, i) + state.root_pos;        
     }
 }
 
 void A1RobotControl::generate_swing_legs_ctrl(A1CtrlStates &state, double dt) {
+    // TODO: This part need to be modified for rear legs
     state.joint_torques.setZero();
 
     // get current foot pos and target foot pose
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_cur;
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_cur;
+
     Eigen::Matrix<float, 1, NUM_LEG> spline_time;
     spline_time.setZero();
+
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_target;
     foot_pos_target.setZero();
+
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_target;
     foot_vel_target.setZero();
+
     Eigen::Matrix<double, 3, NUM_LEG> foot_pos_error;
     Eigen::Matrix<double, 3, NUM_LEG> foot_vel_error;
 
     // the foot force of swing foot and stance foot, both are in robot frame
     Eigen::Matrix<double, 3, NUM_LEG> foot_forces_kin;
+    foot_forces_kin.setZero();
+
     Eigen::Matrix<double, 3, NUM_LEG> foot_forces_grf;
+    foot_forces_grf.setZero();
 
     for (int i = 0; i < NUM_LEG; ++i) {
-        foot_pos_cur.block<3, 1>(0, i) = state.root_rot_mat_z.transpose() * state.foot_pos_abs.block<3, 1>(0, i);
+        if (i == 0 || i == 1) {
+            foot_pos_cur.block<3, 1>(0, i) = state.root_rot_mat_z.transpose() * state.foot_pos_abs.block<3, 1>(0, i);
 
-        // from foot_pos_cur to foot_pos_final computes an intermediate point using BezierUtils
-        if (state.gait_counter(i) <= state.counter_per_swing) {
-            // stance foot
-            spline_time(i) = 0.0;
-            // in this case the foot should be stance
-            // keep refreshing foot_pos_start in stance mode
-            state.foot_pos_start.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
-        } else {
-            // in this case the foot should be swing
-            spline_time(i) = float(state.gait_counter(i) - state.counter_per_swing) / float(state.counter_per_swing);
+            // from foot_pos_cur to foot_pos_final computes an intermediate point using BezierUtils
+            if (state.gait_counter(i) <= state.counter_per_swing) {
+                // stance foot
+                spline_time(i) = 0.0;
+                // in this case the foot should be stance
+                // keep refreshing foot_pos_start in stance mode
+                state.foot_pos_start.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
+            } else {
+                // in this case the foot should be swing
+                spline_time(i) = float(state.gait_counter(i) - state.counter_per_swing) / float(state.counter_per_swing);
+            }
+
+            foot_pos_target.block<3, 1>(0, i) = bezierUtils[i].get_foot_pos_curve(spline_time(i),
+                                                                                state.foot_pos_start.block<3, 1>(0, i),
+                                                                                state.foot_pos_target_rel.block<3, 1>(0, i),
+                                                                                0.0);
+
+            foot_vel_cur.block<3, 1>(0, i) = (foot_pos_cur.block<3, 1>(0, i) - state.foot_pos_rel_last_time.block<3, 1>(0, i)) / dt;
+            state.foot_pos_rel_last_time.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
+
+            foot_vel_target.block<3, 1>(0, i) = (foot_pos_target.block<3, 1>(0, i) - state.foot_pos_target_last_time.block<3, 1>(0, i)) / dt;
+            state.foot_pos_target_last_time.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i);
+
+            foot_pos_error.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i) - foot_pos_cur.block<3, 1>(0, i);
+            foot_vel_error.block<3, 1>(0, i) = foot_vel_target.block<3, 1>(0, i) - foot_vel_cur.block<3, 1>(0, i);
+            foot_forces_kin.block<3, 1>(0, i) = foot_pos_error.block<3, 1>(0, i).cwiseProduct(state.kp_foot.block<3, 1>(0, i)) +
+                                                foot_vel_error.block<3, 1>(0, i).cwiseProduct(state.kd_foot.block<3, 1>(0, i));
         }
-
-        foot_pos_target.block<3, 1>(0, i) = bezierUtils[i].get_foot_pos_curve(spline_time(i),
-                                                                              state.foot_pos_start.block<3, 1>(0, i),
-                                                                              state.foot_pos_target_rel.block<3, 1>(0, i),
-                                                                              0.0);
-
-        foot_vel_cur.block<3, 1>(0, i) = (foot_pos_cur.block<3, 1>(0, i) - state.foot_pos_rel_last_time.block<3, 1>(0, i)) / dt;
-        state.foot_pos_rel_last_time.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
-
-        foot_vel_target.block<3, 1>(0, i) = (foot_pos_target.block<3, 1>(0, i) - state.foot_pos_target_last_time.block<3, 1>(0, i)) / dt;
-        state.foot_pos_target_last_time.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i);
-
-        foot_pos_error.block<3, 1>(0, i) = foot_pos_target.block<3, 1>(0, i) - foot_pos_cur.block<3, 1>(0, i);
-        foot_vel_error.block<3, 1>(0, i) = foot_vel_target.block<3, 1>(0, i) - foot_vel_cur.block<3, 1>(0, i);
-        foot_forces_kin.block<3, 1>(0, i) = foot_pos_error.block<3, 1>(0, i).cwiseProduct(state.kp_foot.block<3, 1>(0, i)) +
-                                            foot_vel_error.block<3, 1>(0, i).cwiseProduct(state.kd_foot.block<3, 1>(0, i));
     }
+    state.foot_pos_target = foot_pos_target;
     state.foot_pos_cur = foot_pos_cur;
+
+    // debug publish
+    geometry_msgs::PointStamped FL_foot_pos_target_msg;
+    geometry_msgs::PointStamped FR_foot_pos_target_msg;
+    geometry_msgs::PointStamped RL_foot_pos_target_msg;
+    geometry_msgs::PointStamped RR_foot_pos_target_msg;
+
+    FL_foot_pos_target_msg.point.x = foot_pos_target(0, 0);
+    FL_foot_pos_target_msg.point.y = foot_pos_target(1, 0);
+    FL_foot_pos_target_msg.point.z = foot_pos_target(2, 0);
+
+    FR_foot_pos_target_msg.point.x = foot_pos_target(0, 1);
+    FR_foot_pos_target_msg.point.y = foot_pos_target(1, 1);
+    FR_foot_pos_target_msg.point.z = foot_pos_target(2, 1);
+
+    RL_foot_pos_target_msg.point.x = foot_pos_target(0, 2);
+    RL_foot_pos_target_msg.point.y = foot_pos_target(1, 2);
+    RL_foot_pos_target_msg.point.z = foot_pos_target(2, 2);
+
+    RR_foot_pos_target_msg.point.x = foot_pos_target(0, 3);
+    RR_foot_pos_target_msg.point.y = foot_pos_target(1, 3);
+    RR_foot_pos_target_msg.point.z = foot_pos_target(2, 3);    
+
+    pub_foot_pos_target[0].publish(FL_foot_pos_target_msg);
+    pub_foot_pos_target[1].publish(FR_foot_pos_target_msg);
+    pub_foot_pos_target[2].publish(RL_foot_pos_target_msg);
+    pub_foot_pos_target[3].publish(RR_foot_pos_target_msg);
+
+    geometry_msgs::PointStamped FL_foot_pos_cur_msg;
+    geometry_msgs::PointStamped FR_foot_pos_cur_msg;
+    geometry_msgs::PointStamped RL_foot_pos_cur_msg;
+    geometry_msgs::PointStamped RR_foot_pos_cur_msg;
+
+    FL_foot_pos_cur_msg.point.x = foot_pos_cur(0, 0);
+    FL_foot_pos_cur_msg.point.y = foot_pos_cur(1, 0);
+    FL_foot_pos_cur_msg.point.z = foot_pos_cur(2, 0);
+
+    FR_foot_pos_cur_msg.point.x = foot_pos_cur(0, 1);
+    FR_foot_pos_cur_msg.point.y = foot_pos_cur(1, 1);
+    FR_foot_pos_cur_msg.point.z = foot_pos_cur(2, 1);
+
+    RL_foot_pos_cur_msg.point.x = foot_pos_cur(0, 2);
+    RL_foot_pos_cur_msg.point.y = foot_pos_cur(1, 2);
+    RL_foot_pos_cur_msg.point.z = foot_pos_cur(2, 2);
+
+    RR_foot_pos_cur_msg.point.x = foot_pos_cur(0, 3);
+    RR_foot_pos_cur_msg.point.y = foot_pos_cur(1, 3);
+    RR_foot_pos_cur_msg.point.z = foot_pos_cur(2, 3);
+
+    pub_foot_pos_cur[0].publish(FL_foot_pos_cur_msg);
+    pub_foot_pos_cur[1].publish(FR_foot_pos_cur_msg);
+    pub_foot_pos_cur[2].publish(RL_foot_pos_cur_msg);
+    pub_foot_pos_cur[3].publish(RR_foot_pos_cur_msg);
 
     // detect early contact
     bool last_contacts[NUM_LEG];
 
     for (int i = 0; i < NUM_LEG; ++i) {
-        if (state.gait_counter(i) <= state.counter_per_swing * 1.5) {
-            state.early_contacts[i] = false;
+        if (i <= 1) {
+            if (state.gait_counter(i) <= state.counter_per_swing * 1.5) {
+                state.early_contacts[i] = false;
+            }
+            if (!state.plan_contacts[i] &&
+                (state.gait_counter(i) > state.counter_per_swing * 1.5) &&
+                (state.foot_force(i) > FOOT_FORCE_LOW)) {
+                state.early_contacts[i] = true;
+            }
         }
-        if (!state.plan_contacts[i] &&
-            (state.gait_counter(i) > state.counter_per_swing * 1.5) &&
-            (state.foot_force(i) > FOOT_FORCE_LOW)) {
-            state.early_contacts[i] = true;
-        }
-
         // actual contact
         last_contacts[i] = state.contacts[i];
         state.contacts[i] = state.plan_contacts[i] || state.early_contacts[i];
 
         // record recent contact position if the foot is in touch with the ground
-        if (state.contacts[i]) {
-//            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.root_rot_mat.transpose() * (state.foot_pos_world.block<3, 1>(0, i));
-//            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.foot_pos_abs.block<3, 1>(0, i);
-            state.foot_pos_recent_contact.block<3, 1>(0, i)
-                    << recent_contact_x_filter[i].CalculateAverage(state.foot_pos_abs(0, i)),
-                    recent_contact_y_filter[i].CalculateAverage(state.foot_pos_abs(1, i)),
-                    recent_contact_z_filter[i].CalculateAverage(state.foot_pos_abs(2, i));
-        }
+//         if (state.contacts[i]) {
+// //            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.root_rot_mat.transpose() * (state.foot_pos_world.block<3, 1>(0, i));
+// //            state.foot_pos_recent_contact.block<3, 1>(0, i) = state.foot_pos_abs.block<3, 1>(0, i);
+//             state.foot_pos_recent_contact.block<3, 1>(0, i)
+//                     << recent_contact_x_filter[i].CalculateAverage(state.foot_pos_abs(0, i)),
+//                     recent_contact_y_filter[i].CalculateAverage(state.foot_pos_abs(1, i)),
+//                     recent_contact_z_filter[i].CalculateAverage(state.foot_pos_abs(2, i));
+//         }
     }
-
-    std::cout << "foot_pos_recent_contact z: " << state.foot_pos_recent_contact.block<1, 4>(2, 0) << std::endl;
 
     state.foot_forces_kin = foot_forces_kin;
 }
@@ -458,7 +534,7 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
                 state.root_ang_vel[0], state.root_ang_vel[1], state.root_ang_vel[2],
                 state.root_lin_vel[0], state.root_lin_vel[1], state.root_lin_vel[2],
                 -9.8;
-
+        
         // previously we use dt passed by outer thread. It turns out that this dt is not stable on hardware.
         // if the thread is slowed down, dt becomes large, then MPC will output very large force and torque value
         // which will cause over current. Here we use a new mpc_dt, this should be roughly close to the average dt
@@ -466,9 +542,9 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
         double mpc_dt = 0.0025;
 
         // in simulation, use dt has no problem
-        if (use_sim_time == "true") {
-            mpc_dt = dt;
-        }
+        // if (use_sim_time == "true") {
+        //     mpc_dt = dt;
+        // }
 
         // initialize the desired mpc states trajectory
         state.root_lin_vel_d_world = state.root_rot_mat * state.root_lin_vel_d;
@@ -540,6 +616,31 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
             solver.updateLowerBound(mpc_solver.lb);
             solver.updateUpperBound(mpc_solver.ub);
         }
+
+        // solver.settings()->setVerbosity(false);
+        // solver.settings()->setWarmStart(false);
+        // solver.data()->setNumberOfVariables(NUM_DOF * PLAN_HORIZON);
+        // solver.data()->setNumberOfConstraints(MPC_CONSTRAINT_DIM * PLAN_HORIZON);
+        // solver.data()->setLinearConstraintsMatrix(mpc_solver.linear_constraints);
+        // solver.data()->setHessianMatrix(mpc_solver.hessian);
+        // solver.data()->setGradient(mpc_solver.gradient);
+        // solver.data()->setLowerBound(mpc_solver.lb);
+        // solver.data()->setUpperBound(mpc_solver.ub);
+        // solver.initSolver();
+
+        // debug print
+        // std::cout << "hessian: " << std::endl << mpc_solver.hessian << std::endl;
+        // std::cout << "gradient: " << std::endl << mpc_solver.gradient << std::endl;
+        // std::cout << "linear constraints: " << std::endl << mpc_solver.linear_constraints << std::endl;
+        // std::cout << "lb: " << std::endl << mpc_solver.lb << std::endl;
+        // std::cout << "ub: " << std::endl << mpc_solver.ub << std::endl;
+        // std::cout << "mpc initial state: " << std::endl << state.mpc_states << std::endl;
+        // std::cout << "mpc ref traj: " << std::endl << state.mpc_states_d << std::endl;
+        // std::cout << "root_euler_d" << std::endl << state.root_euler_d << std::endl;
+        // std::cout << "root_ang_vel_d" << std::endl << state.root_ang_vel_d << std::endl;
+        // std::cout << "root_lin_vel_d_world" << std::endl << state.root_lin_vel_d_world << std::endl;
+        // std::cout << "root_pos_d" << std::endl << state.root_pos_d << std::endl;
+
         auto t5 = std::chrono::high_resolution_clock::now();
         solver.solve();
         auto t6 = std::chrono::high_resolution_clock::now();
@@ -550,37 +651,43 @@ Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &stat
         std::chrono::duration<double, std::milli> ms_double_4 = t5 - t4;
         std::chrono::duration<double, std::milli> ms_double_5 = t6 - t5;
 
+        Eigen::VectorXd solution = solver.getSolution();
+
+        solver.data()->clearLinearConstraintsMatrix();
+        solver.data()->clearHessianMatrix();
+        solver.clearSolver();
+        // std::cout << solution.transpose() << std::endl;
+
 //        std::cout << "mpc cal A_mat_c: " << ms_double_1.count() << "ms" << std::endl;
 //        std::cout << "mpc cal B_mat_d_list: " << ms_double_2.count() << "ms" << std::endl;
 //        std::cout << "mpc cal qp mats: " << ms_double_3.count() << "ms" << std::endl;
 //        std::cout << "mpc init time: " << ms_double_4.count() << "ms" << std::endl;
 //        std::cout << "mpc solve time: " << ms_double_5.count() << "ms" << std::endl << std::endl;
 
-        Eigen::VectorXd solution = solver.getSolution();
-        // std::cout << solution.transpose() << std::endl;
-
         for (int i = 0; i < NUM_LEG; ++i) {
             if (!isnan(solution.segment<3>(i * 3).norm()))
                 foot_forces_grf.block<3, 1>(0, i) = state.root_rot_mat.transpose() * solution.segment<3>(i * 3);
         }
     }
+    std::cout << "foot_forces_grf: " << std::endl;
+    std::cout << foot_forces_grf << std::endl;
     return foot_forces_grf;
 }
 
-Eigen::Vector3d A1RobotControl::compute_walking_surface(A1CtrlStates &state) {
-    Eigen::Matrix<double, NUM_LEG, 3> W;
-    Eigen::VectorXd foot_pos_z;
-    Eigen::Vector3d a;
-    Eigen::Vector3d surf_coef;
+// Eigen::Vector3d A1RobotControl::compute_walking_surface(A1CtrlStates &state) {
+//     Eigen::Matrix<double, NUM_LEG, 3> W;
+//     Eigen::VectorXd foot_pos_z;
+//     Eigen::Vector3d a;
+//     Eigen::Vector3d surf_coef;
 
-    W.block<NUM_LEG, 1>(0, 0).setOnes();
-    W.block<NUM_LEG, 2>(0, 1) = state.foot_pos_recent_contact.block<2, NUM_LEG>(0, 0).transpose();
+//     W.block<NUM_LEG, 1>(0, 0).setOnes();
+//     W.block<NUM_LEG, 2>(0, 1) = state.foot_pos_recent_contact.block<2, NUM_LEG>(0, 0).transpose();
 
-    foot_pos_z.resize(NUM_LEG);
-    foot_pos_z = state.foot_pos_recent_contact.block<1, NUM_LEG>(2, 0).transpose();
+//     foot_pos_z.resize(NUM_LEG);
+//     foot_pos_z = state.foot_pos_recent_contact.block<1, NUM_LEG>(2, 0).transpose();
 
-    a = Utils::pseudo_inverse(W.transpose() * W) * W.transpose() * foot_pos_z;
-    // surface: a1 * x + a2 * y - z + a0 = 0, coefficient vector: [a1, a2, -1]
-    surf_coef << a[1], a[2], -1;
-    return surf_coef;
-}
+//     a = Utils::pseudo_inverse(W.transpose() * W) * W.transpose() * foot_pos_z;
+//     // surface: a1 * x + a2 * y - z + a0 = 0, coefficient vector: [a1, a2, -1]
+//     surf_coef << a[1], a[2], -1;
+//     return surf_coef;
+// }

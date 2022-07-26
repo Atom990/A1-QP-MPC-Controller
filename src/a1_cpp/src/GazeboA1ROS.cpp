@@ -191,11 +191,11 @@ bool GazeboA1ROS::main_update(double t, double dt) {
     _root_control.generate_swing_legs_ctrl(a1_ctrl_states, dt);
 
     // state estimation
-    if (!a1_estimate.is_inited()) {
-        a1_estimate.init_state(a1_ctrl_states);
-    } else {
-        a1_estimate.update_estimation(a1_ctrl_states, dt);
-    }
+    // if (!a1_estimate.is_inited()) {
+    //     a1_estimate.init_state(a1_ctrl_states);
+    // } else {
+    //     a1_estimate.update_estimation(a1_ctrl_states, dt);
+    // }
 
     nav_msgs::Odometry estimate_odom;
     estimate_odom.pose.pose.position.x = a1_ctrl_states.estimated_root_pos(0);

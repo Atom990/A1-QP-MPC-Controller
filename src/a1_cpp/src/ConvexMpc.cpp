@@ -7,7 +7,7 @@
 ConvexMpc::ConvexMpc(Eigen::VectorXd &q_weights_, Eigen::VectorXd &r_weights_) {
     mu = 0.3;
     fz_min = 0.0;
-    fz_max = 0.0;
+    fz_max = 180.0;
 
     // reserve size for sparse matrix
     Q_sparse = Eigen::SparseMatrix<double>(MPC_STATE_DIM * PLAN_HORIZON,MPC_STATE_DIM * PLAN_HORIZON);
@@ -45,16 +45,28 @@ ConvexMpc::ConvexMpc(Eigen::VectorXd &q_weights_, Eigen::VectorXd &r_weights_) {
 
     linear_constraints.resize(MPC_CONSTRAINT_DIM * PLAN_HORIZON, NUM_DOF * PLAN_HORIZON);    
     for (int i = 0; i < NUM_LEG * PLAN_HORIZON; ++i) {
+        // bug here
         linear_constraints.insert(0 + 5 * i, 0 + 3 * i) = 1;
         linear_constraints.insert(1 + 5 * i, 0 + 3 * i) = 1;
         linear_constraints.insert(2 + 5 * i, 1 + 3 * i) = 1;
         linear_constraints.insert(3 + 5 * i, 1 + 3 * i) = 1;
         linear_constraints.insert(4 + 5 * i, 2 + 3 * i) = 1;
 
-        linear_constraints.insert(0 + 5 * i, 2 + 3 * i) = mu;
-        linear_constraints.insert(1 + 5 * i, 2 + 3 * i) = -mu;
-        linear_constraints.insert(2 + 5 * i, 2 + 3 * i) = mu;
-        linear_constraints.insert(3 + 5 * i, 2 + 3 * i) = -mu;
+        if (i < 4) {
+            if (i == 0 || i == 1) {
+                linear_constraints.insert(0 + 5 * i, 2 + 3 * i) = mu;
+                linear_constraints.insert(1 + 5 * i, 2 + 3 * i) = -mu;
+                linear_constraints.insert(2 + 5 * i, 2 + 3 * i) = mu;
+                linear_constraints.insert(3 + 5 * i, 2 + 3 * i) = -mu;
+            }
+        } else if (i >= 4) {
+            if (i % 4 == 0 || i % 4 == 1) {
+                linear_constraints.insert(0 + 5 * i, 2 + 3 * i) = mu;
+                linear_constraints.insert(1 + 5 * i, 2 + 3 * i) = -mu;
+                linear_constraints.insert(2 + 5 * i, 2 + 3 * i) = mu;
+                linear_constraints.insert(3 + 5 * i, 2 + 3 * i) = -mu;
+            }
+        }
     }
 
 //    Eigen::Matrix<double, NUM_DOF, NUM_DOF> R_small;
@@ -220,29 +232,228 @@ void ConvexMpc::calculate_qp_mats(A1CtrlStates &state) {
 
     // auto t5 = std::chrono::high_resolution_clock::now();
     // calculate lower bound and upper bound
-    fz_min = 0;
-    fz_max = 180;
+    fz_min = 0.0;
+    fz_max = 180.0;
 
     Eigen::VectorXd lb_one_horizon(MPC_CONSTRAINT_DIM);
     Eigen::VectorXd ub_one_horizon(MPC_CONSTRAINT_DIM);
     for (int i = 0; i < NUM_LEG; ++i) {
-        lb_one_horizon.segment<5>(i * 5) << 0,
-                -OsqpEigen::INFTY,
-                0,
-                -OsqpEigen::INFTY,
-                fz_min * state.contacts[i];
-        ub_one_horizon.segment<5>(i * 5) << OsqpEigen::INFTY,
-                0,
-                OsqpEigen::INFTY,
-                0,
-                fz_max * state.contacts[i];
+        if (i == 0 || i == 1) {
+            lb_one_horizon.segment<5>(i * 5) << 0,
+                                                -OsqpEigen::INFTY,
+                                                0,
+                                                -OsqpEigen::INFTY,
+                                                fz_min * state.contacts[i];
+            ub_one_horizon.segment<5>(i * 5) << OsqpEigen::INFTY,
+                                                0,
+                                                OsqpEigen::INFTY,
+                                                0,
+                                                fz_max * state.contacts[i];
+        } else {
+            lb_one_horizon.segment<5>(i * 5) << 0,
+                                                0,
+                                                0,
+                                                0,
+                                                fz_min;
+            ub_one_horizon.segment<5>(i * 5) << 0,
+                                                0,
+                                                0,
+                                                0,
+                                                fz_max;
+        }
     }
-    // std:: cout << lb_one_horizon.transpose() << std::endl;
-    // std:: cout << ub_one_horizon.transpose() << std::endl;
+
     for (int i = 0; i < PLAN_HORIZON; ++i) {
         lb.segment<MPC_CONSTRAINT_DIM>(i * MPC_CONSTRAINT_DIM) = lb_one_horizon;
         ub.segment<MPC_CONSTRAINT_DIM>(i * MPC_CONSTRAINT_DIM) = ub_one_horizon;
     }
+
+// linear constraints: 
+// 1 0 0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 1 0 -0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 1 0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 1 -0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 1 0 0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 1 0 -0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 1 0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 1 -0.3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0.3 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 1 0 -0.3 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0.3 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 1 -0.3 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0.3 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 -0.3 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0.3 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 -0.3 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 
+// 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 
+
+// lb: 
+//      0
+// -1e+30
+//      0
+// -1e+30
+//      0
+//      0
+// -1e+30
+//      0
+// -1e+30
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+// -1e+30
+//      0
+// -1e+30
+//      0
+//      0
+// -1e+30
+//      0
+// -1e+30
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+//      0
+// ub: 
+// 1e+30
+//     0
+// 1e+30
+//     0
+//   180
+// 1e+30
+//     0
+// 1e+30
+//     0
+//   180
+//     0
+//     0
+//     0
+//     0
+//   180
+//     0
+//     0
+//     0
+//     0
+//   180
+// 1e+30
+//     0
+// 1e+30
+//     0
+//   180
+// 1e+30
+//     0
+// 1e+30
+//     0
+//   180
+//     0
+//     0
+//     0
+//     0
+//   180
+//     0
+//     0
+//     0
+//     0
+//   180
+// mpc initial state: 
+// -9.13146e-05
+//  -0.00495865
+//   0.00162127
+//   -0.0011006
+// -0.000862095
+//     0.384561
+//   0.00140502
+//     0.270957
+//  0.000946487
+//  -0.00228195
+//  0.000174233
+//      -0.0415
+//         -9.8
+
+// mpc ref traj: 
+//            0
+//            0
+//   0.00162127
+//   -0.0011006
+// -0.000862095
+//       0.3845
+//            0
+//            0
+//            0
+//            0
+//            0
+//            0
+//         -9.8
+//            0
+//            0
+//   0.00162127
+//   -0.0011006
+// -0.000862095
+//       0.3845
+//            0
+//            0
+//            0
+//            0
+//            0
+//            0
+//         -9.8
+// root_euler_d
+// 0
+// 0
+// 0
+// root_ang_vel_d
+// 0
+// 0
+// 0
+// root_lin_vel_d_world
+// 0
+// 0
+// 0
+// root_pos_d
+//      0
+//      0
+// 0.3845
+// foot_forces_grf: 
+//     6.76565     8.94566    0.213501    0.210245
+//   -0.613767   -0.616431 -0.00374777 -0.00369061
+//     155.533     154.154     42.8152     42.1622
 
     // auto t6 = std::chrono::high_resolution_clock::now();
 

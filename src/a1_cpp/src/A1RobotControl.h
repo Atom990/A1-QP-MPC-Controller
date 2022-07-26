@@ -71,6 +71,10 @@ private:
     ros::Publisher pub_foot_start[NUM_LEG];
     ros::Publisher pub_foot_end[NUM_LEG];
     ros::Publisher pub_foot_path[NUM_LEG];
+
+    ros::Publisher pub_foot_pos_target[NUM_LEG];
+    ros::Publisher pub_foot_pos_cur[NUM_LEG];
+    
     visualization_msgs::Marker foot_start_marker[NUM_LEG];
     visualization_msgs::Marker foot_end_marker[NUM_LEG];
     visualization_msgs::Marker foot_path_marker[NUM_LEG];

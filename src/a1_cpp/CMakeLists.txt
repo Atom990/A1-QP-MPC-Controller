@@ -51,14 +51,14 @@ set(EXTRA_LIBS -pthread libunitree_legged_sdk_amd64.so lcm)
 add_library(a1_lib
         src/legKinematics/A1Kinematics.h
         src/legKinematics/A1Kinematics.cpp
+        src/legKinematics/WLKinematics.h
+        src/legKinematics/WLKinematics.cpp
         src/A1Params.h
         src/A1CtrlStates.h
         src/utils/Utils.cpp
         src/utils/Utils.h
         src/A1RobotControl.cpp
         src/A1RobotControl.h
-        src/A1BasicEKF.cpp
-        src/A1BasicEKF.h
         src/ConvexMpc.cpp
         src/ConvexMpc.h
         )
@@ -66,32 +66,12 @@ target_link_libraries(a1_lib ${catkin_LIBRARIES} OsqpEigen::OsqpEigen)
 
 # lib of different types of robots
 add_library(gazebo_a1_lib
-        src/GazeboA1ROS.h
-        src/GazeboA1ROS.cpp
-        )
-
-add_library(isaac_a1_lib
-        src/IsaacA1ROS.h
-        src/IsaacA1ROS.cpp
-        )
-
-add_library(hardware_a1_lib
-        src/HardwareA1ROS.h
-        src/HardwareA1ROS.cpp
+        src/GazeboWLROS.h
+        src/GazeboWLROS.cpp
         )
 
 # all robots depends on the a1_lib
 target_link_libraries(gazebo_a1_lib a1_lib)
-target_link_libraries(isaac_a1_lib a1_lib)
-target_link_libraries(hardware_a1_lib a1_lib ${EXTRA_LIBS})
-
-# Declare a cpp executable for isaac robot
-add_executable(isaac_a1_ctrl src/MainIsaac.cpp)
-target_link_libraries(isaac_a1_ctrl
-        isaac_a1_lib
-        ${catkin_LIBRARIES}
-        OsqpEigen::OsqpEigen
-        )
 
 # Declare a cpp executable for gazebo robot
 add_executable(gazebo_a1_ctrl src/MainGazebo.cpp)
@@ -101,17 +81,7 @@ target_link_libraries(gazebo_a1_ctrl
         OsqpEigen::OsqpEigen
         )
 
-# Declare a cpp executable for hardware robot
-add_executable(hardware_a1_ctrl src/MainHardware.cpp)
-target_link_libraries(hardware_a1_ctrl
-        hardware_a1_lib
-        ${catkin_LIBRARIES}
-        OsqpEigen::OsqpEigen
-        )
-
 # tests
-# Declare a cpp executable
-
 add_executable(test_rotation src/test/test_rotation.cpp
         src/utils/Utils.cpp
         src/utils/Utils.h

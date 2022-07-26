@@ -15,49 +15,59 @@ int main(int, char **) {
     A1CtrlStates state;
     state.reset(); // 0, 1, 2, 3: FL, FR, RL, RR
 
-    state.robot_mass = 15;
-    state.a1_trunk_inertia << 0.0158533, 0.0, 0.0,
-            0.0, 0.0377999, 0.0,
-            0.0, 0.0, 0.0456542;
+    state.robot_mass = 15.0;
+    state.a1_trunk_inertia << 0.10625, 0.0, 0.0,
+            0.0, 0.828125, 0.0,
+            0.0, 0.0, 0.878125;
 
-    state.root_euler << 0.0, 0.0, 0.0;
+    state.root_euler << 0.0, -0.00495865, 0.00162127;
 
     Eigen::AngleAxisd rollAngle(state.root_euler[0], Eigen::Vector3d::UnitZ());
     Eigen::AngleAxisd yawAngle(state.root_euler[1], Eigen::Vector3d::UnitY());
     Eigen::AngleAxisd pitchAngle(state.root_euler[2], Eigen::Vector3d::UnitX());
     Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
 
-    state.root_rot_mat = q.matrix();
+    state.root_rot_mat = q.toRotationMatrix();
 
-    state.root_pos << 0.0, 0.0, 0.15;
-    state.root_ang_vel << 0.0, 0.0, 0.0;
-    state.root_lin_vel << 0.0, 0.0, 0.0;
+    state.root_pos << -0.0011006, -0.000862095, 0.384561;
+    state.root_ang_vel << 0.00140502, 0.0, 0.000946487;
+    state.root_lin_vel << -0.00228195, 0.000174233, -0.0415;
+    
     state.root_euler_d << 0.0, 0.0, 0.0;
     state.root_ang_vel_d << 0.0, 0.0, 0.0;
     state.root_lin_vel_d << 0.0, 0.0, 0.0;
     // 0, 1, 2, 3: FL, FR, RL, RR
-    state.foot_pos_rel << 0.17, 0.17, -0.17, -0.17,
-            0.15, -0.15, 0.15, -0.15,
-            -0.35, -0.35, -0.35, -0.35;
+    state.foot_pos_rel << 0.4, 0.4, -0.5, -0.5,
+                          0.18, -0.18, 0.15, -0.15,
+                          -0.365, -0.365, -0.385, -0.385;
 
-    state.contacts[0] = true;
-    state.contacts[1] = false;
+    state.contacts[0] = false;
+    state.contacts[1] = true;
     state.contacts[2] = true;
-    state.contacts[3] = false;
+    state.contacts[3] = true;
 
     double dt = 0.0025;
 
     Eigen::VectorXd q_weights(13);
     Eigen::VectorXd r_weights(12);
-    q_weights << 1.0, 1.0, 1.0,
-            0.0, 0.0, 50.0,
-            0.0, 0.0, 1.0,
-            1.0, 1.0, 1.0,
+//     q_weights << 1.0, 1.0, 1.0,
+//             0.0, 0.0, 50.0,
+//             0.0, 0.0, 1.0,
+//             1.0, 1.0, 1.0,
+//             0.0;
+//     r_weights << 1e-6, 1e-6, 1e-6,
+//             1e-6, 1e-6, 1e-6,
+//             1e-6, 1e-6, 1e-6,
+//             1e-6, 1e-6, 1e-6;
+    q_weights << 50.0, 50.0, 1.0,
+            0.0, 0.0, 420.0,
+            0.05, 0.05, 0.05,
+            30.0, 30.0, 10.0,
             0.0;
-    r_weights << 1e-6, 1e-6, 1e-6,
-            1e-6, 1e-6, 1e-6,
-            1e-6, 1e-6, 1e-6,
-            1e-6, 1e-6, 1e-6;
+    r_weights << 1e-8, 1e-8, 1e-8,
+            1e-8, 1e-8, 1e-8,
+            1e-8, 1e-8, 1e-8,
+            1e-8, 1e-8, 1e-8;
     ConvexMpc mpc_solver = ConvexMpc(q_weights, r_weights);
     mpc_solver.reset();
 
@@ -70,25 +80,26 @@ int main(int, char **) {
             -9.8;
 
     // initialize the desired mpc states trajectory
-    state.root_lin_vel_d_world = state.root_rot_mat * state.root_lin_vel_d;
+    // state.root_lin_vel_d_world = state.root_rot_mat * state.root_lin_vel_d;
+    state.root_lin_vel_d_world << 0.0, 0.0, 0.0;
+    state.root_pos_d << 0.0, 0.0, 0.3845;
+
     state.mpc_states_d.resize(13 * PLAN_HORIZON);
     for (int i = 0; i < PLAN_HORIZON; ++i) {
-        state.mpc_states_d.segment(i * 13, 13)
-                <<
-                state.root_euler_d[0],
+        state.mpc_states_d.segment(i * 13, 13) << state.root_euler_d[0],
                 state.root_euler_d[1],
                 state.root_euler[2] + state.root_ang_vel_d[2] * dt * (i + 1),
                 state.root_pos[0] + state.root_lin_vel_d_world[0] * dt * (i + 1),
                 state.root_pos[1] + state.root_lin_vel_d_world[1] * dt * (i + 1),
-                state.root_pos[2] + state.root_lin_vel_d_world[1] * dt * (i + 1),
+                state.root_pos_d[2],
                 state.root_ang_vel_d[0],
                 state.root_ang_vel_d[1],
                 state.root_ang_vel_d[2],
                 state.root_lin_vel_d_world[0],
                 state.root_lin_vel_d_world[1],
-                state.root_lin_vel_d_world[2],
+                0,
                 -9.8;
-    }
+        }
 
     // a single A_c is computed for the entire reference trajectory using the average value of each euler angles during the reference trajectory
     Eigen::Vector3d avg_root_euler_in_horizon;
@@ -98,21 +109,22 @@ int main(int, char **) {
             (state.root_euler[1] + state.root_euler[1] + state.root_ang_vel_d[1] * dt * PLAN_HORIZON) / (PLAN_HORIZON + 1),
             (state.root_euler[2] + state.root_euler[2] + state.root_ang_vel_d[2] * dt * PLAN_HORIZON) / (PLAN_HORIZON + 1);
 
-    mpc_solver.calculate_A_mat_c(avg_root_euler_in_horizon);
+    // mpc_solver.calculate_A_mat_c(avg_root_euler_in_horizon);
+    mpc_solver.calculate_A_mat_c(state.root_euler);
 
     // for each point in the reference trajectory, an approximate B_c matrix is computed using desired values of euler angles and feet positions
     // from the reference trajectory and foot placement controller
-    state.foot_pos_abs_mpc = state.foot_pos_rel;
+    // state.foot_pos_abs_mpc = state.foot_pos_rel;
     for (int i = 0; i < PLAN_HORIZON; i++) {
         // calculate current B_c matrix
         mpc_solver.calculate_B_mat_c(state.robot_mass,
                                      state.a1_trunk_inertia,
                                      state.root_rot_mat,
                                      state.foot_pos_abs_mpc);
-        state.foot_pos_abs_mpc.block<3, 1>(0, 0) = state.foot_pos_abs_mpc.block<3, 1>(0, 0) - state.root_lin_vel_d * dt;
-        state.foot_pos_abs_mpc.block<3, 1>(0, 1) = state.foot_pos_abs_mpc.block<3, 1>(0, 1) - state.root_lin_vel_d * dt;
-        state.foot_pos_abs_mpc.block<3, 1>(0, 2) = state.foot_pos_abs_mpc.block<3, 1>(0, 2) - state.root_lin_vel_d * dt;
-        state.foot_pos_abs_mpc.block<3, 1>(0, 3) = state.foot_pos_abs_mpc.block<3, 1>(0, 3) - state.root_lin_vel_d * dt;
+        // state.foot_pos_abs_mpc.block<3, 1>(0, 0) = state.foot_pos_abs_mpc.block<3, 1>(0, 0) - state.root_lin_vel_d * dt;
+        // state.foot_pos_abs_mpc.block<3, 1>(0, 1) = state.foot_pos_abs_mpc.block<3, 1>(0, 1) - state.root_lin_vel_d * dt;
+        // state.foot_pos_abs_mpc.block<3, 1>(0, 2) = state.foot_pos_abs_mpc.block<3, 1>(0, 2) - state.root_lin_vel_d * dt;
+        // state.foot_pos_abs_mpc.block<3, 1>(0, 3) = state.foot_pos_abs_mpc.block<3, 1>(0, 3) - state.root_lin_vel_d * dt;
 
         // state space discretization, calculate A_d and current B_d
         mpc_solver.state_space_discretization(dt);
@@ -148,15 +160,25 @@ int main(int, char **) {
     solver.initSolver();
     solver.solve();
 
+    std::cout << "linear constraints: " << std::endl << mpc_solver.linear_constraints << std::endl;
+    std::cout << "lb: " << std::endl << mpc_solver.lb << std::endl;
+    std::cout << "ub: " << std::endl << mpc_solver.ub << std::endl;
+    std::cout << "mpc initial state: " << std::endl << state.mpc_states << std::endl;
+    std::cout << "mpc ref traj: " << std::endl << state.mpc_states_d << std::endl;
+    std::cout << "root_euler_d" << std::endl << state.root_euler_d << std::endl;
+    std::cout << "root_ang_vel_d" << std::endl << state.root_ang_vel_d << std::endl;
+    std::cout << "root_lin_vel_d_world" << std::endl << state.root_lin_vel_d_world << std::endl;
+    std::cout << "root_pos_d" << std::endl << state.root_pos_d << std::endl;
+
     Eigen::VectorXd solution = solver.getSolution();
 
     Eigen::Matrix<double, 3, 4> foot_forces_grf;
     for (int i = 0; i < 4; ++i) {
-        foot_forces_grf.block<3, 1>(0, i) = solution.segment<3>(i * 3);
+        foot_forces_grf.block<3, 1>(0, i) = state.root_rot_mat.transpose() * solution.segment<3>(i * 3);
     }
     std::cout << foot_forces_grf << std::endl;
 
-    std::cout << "Time: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC / 1000) << " ms" << std::endl;
+    // std::cout << "Time: " << (std::clock() - start) / (double) (CLOCKS_PER_SEC / 1000) << " ms" << std::endl;
 
     return 0;
 }
