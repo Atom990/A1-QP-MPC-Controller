@@ -9,17 +9,21 @@ GazeboWLROS::GazeboWLROS(ros::NodeHandle &_nh) {
     nh = _nh;
 
     // ROS publishers
-    pub_joint_cmd[0] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_lateral_hip_controller/command", 1);
-    pub_joint_cmd[1] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_hip_controller/command", 1);
-    pub_joint_cmd[2] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_knee_controller/command", 1);
+    pub_joint_cmd[0] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FL_hip_controller/command", 1);
+    pub_joint_cmd[1] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FL_thigh_controller/command", 1);
+    pub_joint_cmd[2] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FL_calf_controller/command", 1);
 
-    pub_joint_cmd[3] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FR_lateral_hip_controller/command", 1);
-    pub_joint_cmd[4] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FR_hip_controller/command", 1);
-    pub_joint_cmd[5] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FR_knee_controller/command", 1);
+    pub_joint_cmd[3] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FR_hip_controller/command", 1);
+    pub_joint_cmd[4] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FR_thigh_controller/command", 1);
+    pub_joint_cmd[5] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/FR_calf_controller/command", 1);
 
-    pub_joint_cmd[6] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/RL_hip_controller/command", 1);
+    pub_joint_cmd[6] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/RL_hip_controller/command", 1);
     
-    pub_joint_cmd[7] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/RR_hip_controller/command", 1);
+    pub_joint_cmd[7] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/RR_hip_controller/command", 1);
+
+    pub_joint_cmd[8] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/RL_thigh_controller/command", 1);
+    
+    pub_joint_cmd[9] = nh.advertise<unitree_legged_msgs::MotorCmd>("/vert_hybrid/RR_thigh_controller/command", 1);
 
     // pub_estimated_pose = nh.advertise<nav_msgs::Odometry>("/gazebo_a1/estimation_body_pose", 100);
 
@@ -39,17 +43,20 @@ GazeboWLROS::GazeboWLROS(ros::NodeHandle &_nh) {
     sub_gt_pose_msg = nh.subscribe("/torso_odom", 100, &GazeboWLROS::gt_pose_callback, this);
     sub_imu_msg = nh.subscribe("/torso_imu", 100, &GazeboWLROS::imu_callback, this);
 
-    sub_joint_msg[0] = nh.subscribe("/half_legged_wheeled_robot_test/FL_lateral_hip_controller/state", 2, &GazeboWLROS::FL_lateral_hip_state_callback, this);
-    sub_joint_msg[1] = nh.subscribe("/half_legged_wheeled_robot_test/FL_hip_controller/state", 2, &GazeboWLROS::FL_hip_state_callback, this);
-    sub_joint_msg[2] = nh.subscribe("/half_legged_wheeled_robot_test/FL_knee_controller/state", 2, &GazeboWLROS::FL_knee_state_callback, this);
+    sub_joint_msg[0] = nh.subscribe("/vert_hybrid/FL_hip_controller/state", 2, &GazeboWLROS::FL_hip_state_callback, this);
+    sub_joint_msg[1] = nh.subscribe("/vert_hybrid/FL_thigh_controller/state", 2, &GazeboWLROS::FL_thigh_state_callback, this);
+    sub_joint_msg[2] = nh.subscribe("/vert_hybrid/FL_calf_controller/state", 2, &GazeboWLROS::FL_calf_state_callback, this);
 
-    sub_joint_msg[3] = nh.subscribe("/half_legged_wheeled_robot_test/FR_lateral_hip_controller/state", 2, &GazeboWLROS::FR_lateral_hip_state_callback, this);
-    sub_joint_msg[4] = nh.subscribe("/half_legged_wheeled_robot_test/FR_hip_controller/state", 2, &GazeboWLROS::FR_hip_state_callback, this);
-    sub_joint_msg[5] = nh.subscribe("/half_legged_wheeled_robot_test/FR_knee_controller/state", 2, &GazeboWLROS::FR_knee_state_callback, this);
+    sub_joint_msg[3] = nh.subscribe("/vert_hybrid/FR_hip_controller/state", 2, &GazeboWLROS::FL_hip_state_callback, this);
+    sub_joint_msg[4] = nh.subscribe("/vert_hybrid/FR_thigh_controller/state", 2, &GazeboWLROS::FR_thigh_state_callback, this);
+    sub_joint_msg[5] = nh.subscribe("/vert_hybrid/FR_calf_controller/state", 2, &GazeboWLROS::FR_calf_state_callback, this);
 
-    sub_joint_msg[6] = nh.subscribe("/half_legged_wheeled_robot_test/RL_hip_controller/state", 2, &GazeboWLROS::RL_hip_state_callback, this);
+    sub_joint_msg[6] = nh.subscribe("/vert_hybrid/RL_hip_controller/state", 2, &GazeboWLROS::RL_hip_state_callback, this);
 
-    sub_joint_msg[7] = nh.subscribe("/half_legged_wheeled_robot_test/RR_hip_controller/state", 2, &GazeboWLROS::RR_hip_state_callback, this);
+    sub_joint_msg[7] = nh.subscribe("/vert_hybrid/RR_hip_controller/state", 2, &GazeboWLROS::RR_hip_state_callback, this);
+
+    sub_joint_msg[8] = nh.subscribe("/vert_hybrid/RL_thigh_controller/state", 2, &GazeboWLROS::RL_thigh_state_callback, this);
+    sub_joint_msg[9] = nh.subscribe("/vert_hybrid/RR_thigh_controller/state", 2, &GazeboWLROS::RR_thigh_state_callback, this);
 
     sub_foot_contact_msg[0] = nh.subscribe("/visual/FL_foot_contact/the_force", 2, &GazeboWLROS::FL_foot_contact_callback, this);
     sub_foot_contact_msg[1] = nh.subscribe("/visual/FR_foot_contact/the_force", 2, &GazeboWLROS::FR_foot_contact_callback, this);
@@ -221,7 +228,7 @@ bool GazeboWLROS::send_cmd() {
     // send control cmd to robot via ros topic
     unitree_legged_msgs::LowCmd low_cmd;
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 10; i++) {
         low_cmd.motorCmd[i].mode = 0x0A;
         low_cmd.motorCmd[i].q = 0;
         low_cmd.motorCmd[i].dq = 0;
@@ -353,33 +360,33 @@ void GazeboWLROS::imu_callback(const sensor_msgs::Imu::ConstPtr &imu) {
 }
 
 // FL
-void GazeboWLROS::FL_lateral_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FL_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[0] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[0] = a1_joint_state.dq;
 }
 
-void GazeboWLROS::FL_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FL_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[1] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[1] = a1_joint_state.dq;
 }
 
-void GazeboWLROS::FL_knee_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FL_calf_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[2] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[2] = a1_joint_state.dq;
 }
 
 // FR
-void GazeboWLROS::FR_lateral_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FR_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[3] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[3] = a1_joint_state.dq;
 }
 
-void GazeboWLROS::FR_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FR_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[4] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[4] = a1_joint_state.dq;
 }
 
-void GazeboWLROS::FR_knee_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+void GazeboWLROS::FR_calf_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
     a1_ctrl_states.joint_pos[5] = a1_joint_state.q;
     a1_ctrl_states.joint_vel[5] = a1_joint_state.dq;
 }
@@ -392,8 +399,18 @@ void GazeboWLROS::RL_hip_state_callback(const unitree_legged_msgs::MotorState &a
 
 // RR
 void GazeboWLROS::RR_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
-    a1_ctrl_states.joint_pos[10] = a1_joint_state.q;
-    a1_ctrl_states.joint_vel[10] = a1_joint_state.dq;
+    a1_ctrl_states.joint_pos[8] = a1_joint_state.q;
+    a1_ctrl_states.joint_vel[8] = a1_joint_state.dq;
+}
+// RL_thigh
+void GazeboWLROS::RL_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+    a1_ctrl_states.joint_pos[6] = a1_joint_state.q;
+    a1_ctrl_states.joint_vel[6] = a1_joint_state.dq;
+}
+//RR_thigh
+void GazeboWLROS::RR_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state) {
+    a1_ctrl_states.joint_pos[9] = a1_joint_state.q;
+    a1_ctrl_states.joint_vel[9] = a1_joint_state.dq;
 }
 
 // foot contact force

@@ -61,17 +61,19 @@ public:
     void joy_callback(const sensor_msgs::Joy::ConstPtr &joy_msg);
 
     // joint states callback
-    void FL_lateral_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
     void FL_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
-    void FL_knee_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+    void FL_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+    void FL_calf_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
 
-    void FR_lateral_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
     void FR_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
-    void FR_knee_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+    void FR_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+    void FR_calf_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
 
     void RL_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
-
     void RR_hip_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+
+    void RL_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
+    void RR_thigh_state_callback(const unitree_legged_msgs::MotorState &a1_joint_state);
 
     // foot contact callback
     void FL_foot_contact_callback(const geometry_msgs::WrenchStamped &force);
