@@ -279,6 +279,7 @@ void GazeboA1ROS::gt_pose_callback(const nav_msgs::Odometry::ConstPtr &odom) {
         a1_ctrl_states.foot_pos_world.block<3, 1>(0, i) = a1_ctrl_states.foot_pos_abs.block<3, 1>(0, i) + a1_ctrl_states.root_pos;
         a1_ctrl_states.foot_vel_world.block<3, 1>(0, i) = a1_ctrl_states.foot_vel_abs.block<3, 1>(0, i) + a1_ctrl_states.root_lin_vel;
     }
+    
 }
 
 void GazeboA1ROS::imu_callback(const sensor_msgs::Imu::ConstPtr &imu) {

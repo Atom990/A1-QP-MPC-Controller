@@ -9,6 +9,7 @@ GazeboWLROS::GazeboWLROS(ros::NodeHandle &_nh) {
     nh = _nh;
 
     // ROS publishers
+    // bug here
     pub_joint_cmd[0] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_lateral_hip_controller/command", 1);
     pub_joint_cmd[1] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_hip_controller/command", 1);
     pub_joint_cmd[2] = nh.advertise<unitree_legged_msgs::MotorCmd>("/half_legged_wheeled_robot_test/FL_knee_controller/command", 1);
@@ -72,10 +73,10 @@ GazeboWLROS::GazeboWLROS(ros::NodeHandle &_nh) {
     R_br = Eigen::Matrix3d::Identity();
 
     // leg order: 0-FL  1-FR  2-RL  3-RR
-    leg_offset_x[0] = 0.4;
-    leg_offset_x[1] = 0.4;
-    leg_offset_x[2] = -0.3;
-    leg_offset_x[3] = -0.3;
+    leg_offset_x[0] = 0.275;
+    leg_offset_x[1] = 0.275;
+    leg_offset_x[2] = -0.2;
+    leg_offset_x[3] = -0.2;
 
     leg_offset_y[0] = 0.125;
     leg_offset_y[1] = -0.125;
@@ -227,7 +228,15 @@ bool GazeboWLROS::send_cmd() {
         low_cmd.motorCmd[i].dq = 0;
         low_cmd.motorCmd[i].Kp = 0;
         low_cmd.motorCmd[i].Kd = 0;
-        low_cmd.motorCmd[i].tau = a1_ctrl_states.joint_torques(i, 0);
+        
+        if (i < 6) {
+            low_cmd.motorCmd[i].tau = a1_ctrl_states.joint_torques(i, 0);
+        } else if (i == 6) {
+            low_cmd.motorCmd[i].tau = a1_ctrl_states.joint_torques(7, 0);
+        } else {
+            low_cmd.motorCmd[i].tau = a1_ctrl_states.joint_torques(10, 0);
+        }
+
         pub_joint_cmd[i].publish(low_cmd.motorCmd[i]);
     }
 

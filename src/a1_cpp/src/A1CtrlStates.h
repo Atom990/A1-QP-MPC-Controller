@@ -96,8 +96,8 @@ public:
         j_foot.setIdentity();
 
         for (int i = 0; i < NUM_LEG; ++i) {
-            contacts[i] = false;
-            plan_contacts[i] = false;
+            contacts[i] = true;
+            plan_contacts[i] = true;
             early_contacts[i] = false;
         }
 

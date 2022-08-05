@@ -276,10 +276,17 @@ void A1RobotControl::generate_swing_legs_ctrl(A1CtrlStates &state, double dt) {
             foot_vel_error.block<3, 1>(0, i) = foot_vel_target.block<3, 1>(0, i) - foot_vel_cur.block<3, 1>(0, i);
             foot_forces_kin.block<3, 1>(0, i) = foot_pos_error.block<3, 1>(0, i).cwiseProduct(state.kp_foot.block<3, 1>(0, i)) +
                                                 foot_vel_error.block<3, 1>(0, i).cwiseProduct(state.kd_foot.block<3, 1>(0, i));
+        } else {
+            foot_pos_cur.block<3, 1>(0, i) = state.root_rot_mat_z.transpose() * state.foot_pos_abs.block<3, 1>(0, i);
+            state.foot_pos_start.block<3, 1>(0, i) = foot_pos_cur.block<3, 1>(0, i);
         }
     }
     state.foot_pos_target = foot_pos_target;
     state.foot_pos_cur = foot_pos_cur;
+
+    // std::cout << "foot_pos_abs: " << std::endl << state.foot_pos_abs << std::endl;
+    // std::cout << "root_rot_mat_z" << std::endl << state.root_rot_mat_z.transpose() << std::endl;
+    // std::cout << "foot_pos_cur: " << std::endl << state.foot_pos_cur << std::endl;
 
     // debug publish
     geometry_msgs::PointStamped FL_foot_pos_target_msg;
@@ -350,6 +357,10 @@ void A1RobotControl::generate_swing_legs_ctrl(A1CtrlStates &state, double dt) {
         }
         // actual contact
         last_contacts[i] = state.contacts[i];
+        if (i == 2 || i == 3) {
+            state.early_contacts[i] = false;
+        }
+        
         state.contacts[i] = state.plan_contacts[i] || state.early_contacts[i];
 
         // record recent contact position if the foot is in touch with the ground
@@ -396,6 +407,7 @@ void A1RobotControl::compute_joint_torques(A1CtrlStates &state) {
                 state.joint_torques[i] = joint_torques[i];
         }
     }
+    std::cout << "joint torques" << std::endl << state.joint_torques << std::endl;
 }
 
 Eigen::Matrix<double, 3, NUM_LEG> A1RobotControl::compute_grf(A1CtrlStates &state, double dt) {
