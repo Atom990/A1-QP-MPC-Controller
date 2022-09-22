@@ -1,5 +1,30 @@
 # VeRT-Ctrl
 
+## Gazebo Simulation Setup
+
+Open your terminal and go to the src folder of you catkin workspace, and then:
+
+```
+git clone https://github.com/Atom990/VeRT-Sim.git
+cd ..
+catkin build
+```
+
+If you build the workspace sucessfully, you can use this command to open the simulation environment:
+
+```
+roslaunch stair_climbing_sim gazebo.launch
+```
+
+We also provide some convenient command for tunning.
+
+If you want to make the robot go back to its default configuration and pose, try:
+
+```
+rosrun unitree_controller unitree_servo # all the joints should move to its default position
+rosrun stair_climbing_sim move_to_default_pos # now the robot will move back to its default pose
+```
+
 ## Controller Setup
 
 We use docker to setup our control program. We assume you have already installed Docker on your computer.
@@ -34,27 +59,16 @@ catkin build
 
 If everything is good now, the catkin workspace should be built sucessfully.
 
-## Gazebo Simulation Setup
-
-Open your terminal and go to the src folder of you catkin workspace, and then:
+Now, plug in your joystick, such as an Xbox Controller. Run this command to start joy_node
 
 ```
-git clone https://github.com/Atom990/VeRT-Sim.git
-cd ..
-catkin build
+rosrun joy joy_node
 ```
 
-If you build the workspace sucessfully, you can use this command to open the simulation environment:
+Then launch the Gazebo simulation environment and move all the joints and the robot itself to default pose. Finally, we can start the controller and use joystick to control the robot:
 
 ```
-roslaunch stair_climbing_sim gazebo.launch
-```
-
-We also provide some convenient command for tunning.
-
-If you want to make the robot go back to its default configuration and pose, try:
-
-```
-rosrun unitree_controller unitree_servo # all the joints should move to its default position
-rosrun stair_climbing_sim move_to_default_pos # now the robot will move back to its default pose
+cd ~/VeRT-Ctrl
+source devel/setup.bash # you can add this line to .bashrc file
+roslaunch stair_climbing_sim_ctrl a1_ctrl.launch
 ```
